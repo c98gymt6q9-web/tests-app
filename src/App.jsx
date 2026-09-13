@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   LogOut,
   Plus,
@@ -382,6 +382,10 @@ export default function App() {
     persistTests(tests.filter((t) => t.id !== id));
   }
 
+  function bulkImportTests(newTests) {
+    persistTests([...tests, ...newTests]);
+  }
+
   function submitResult(test, answers) {
     let score = 0;
     let total = 0;
@@ -537,6 +541,7 @@ export default function App() {
               onCreate={() => setBuildingTest(true)}
               onEdit={(t) => setBuildingTest(t)}
               onDelete={deleteTest}
+              onBulkImport={bulkImportTests}
             />
           ) : (
             <TeacherProgress users={users} tests={tests} results={results} />
@@ -669,16 +674,68 @@ function AuthScreen({ mode, setMode, error, onLogin, onRegister }) {
   );
 }
 
-function TeacherTests({ tests, results, onCreate, onEdit, onDelete }) {
+function TeacherTests({ tests, results, onCreate, onEdit, onDelete, onBulkImport }) {
+  const fileInputRef = useRef(null);
+  const [bulkMsg, setBulkMsg] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  async function handleBulkFiles(e) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setBulkBusy(true);
+    setBulkMsg("");
+    const newTests = [];
+    const skipped = [];
+    for (const file of files) {
+      try {
+        const html = await file.text();
+        const parsed = parseHtmlTest(html);
+        if (parsed.questions.length === 0) {
+          skipped.push(file.name);
+          continue;
+        }
+        newTests.push({
+          id: uid(),
+          title: parsed.title || file.name.replace(/\.html?$/i, ""),
+          questions: parsed.questions,
+        });
+      } catch {
+        skipped.push(file.name);
+      }
+    }
+    if (newTests.length > 0) onBulkImport(newTests);
+    let msg = newTests.length > 0 ? `Импортировано тестов: ${newTests.length}.` : "Ни один файл не удалось разобрать.";
+    if (skipped.length > 0) msg += ` Пропущено (без вопросов): ${skipped.join(", ")}.`;
+    setBulkMsg(msg);
+    setBulkBusy(false);
+    e.target.value = "";
+  }
+
   return (
     <div style={{ maxWidth: 720 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
         <div className="app-serif" style={{ fontSize: 22 }}>Тесты</div>
-        <button className="btn btn-teal" onClick={onCreate}><Plus size={15} /> Новый тест</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn btn-secondary" disabled={bulkBusy} onClick={() => fileInputRef.current?.click()}>
+            {bulkBusy ? "Загружаю…" : "Массовый импорт HTML"}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".html,.htm"
+            multiple
+            style={{ display: "none" }}
+            onChange={handleBulkFiles}
+          />
+          <button className="btn btn-teal" onClick={onCreate}><Plus size={15} /> Новый тест</button>
+        </div>
       </div>
+      {bulkMsg && (
+        <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 16 }}>{bulkMsg}</div>
+      )}
       {tests.length === 0 && (
         <div style={{ fontSize: 14, color: "var(--ink-soft)", padding: "20px 0" }}>
-          Тестов пока нет — создайте первый.
+          Тестов пока нет — создайте первый или загрузите сразу несколько HTML-файлов.
         </div>
       )}
       <div>
@@ -706,6 +763,68 @@ function TeacherTests({ tests, results, onCreate, onEdit, onDelete }) {
 
 function TeacherProgress({ users, tests, results }) {
   const students = users.filter((u) => u.role === "student");
+  const [viewing, setViewing] = useState(null); // { student, test, attempt }
+
+  if (viewing) {
+    const { student, test, attempt } = viewing;
+    return (
+      <div style={{ maxWidth: 640 }}>
+        <button className="btn btn-secondary" style={{ marginBottom: 18 }} onClick={() => setViewing(null)}>
+          <ChevronLeft size={15} /> К таблице прогресса
+        </button>
+        <div className="app-serif" style={{ fontSize: 20, marginBottom: 2 }}>{test.title}</div>
+        <div style={{ fontSize: 13.5, color: "var(--ink-soft)", marginBottom: 20 }}>
+          {student.name} · {new Date(attempt.completedAt).toLocaleString("ru-RU")}
+          {attempt.total > 0 && <> · {attempt.score}/{attempt.total} правильно</>}
+        </div>
+        {test.questions.map((q, qi) => {
+          const given = attempt.answers[q.id];
+          return (
+            <div key={q.id} className="line-top" style={{ paddingTop: 16, marginBottom: 16 }}>
+              <div style={{ fontSize: 14.5, marginBottom: 8 }}>{qi + 1}. {q.text}</div>
+              {q.type === "single" && (
+                <div style={{ fontSize: 13.5 }}>
+                  <span className={given === q.correct ? "badge badge-teal" : "badge badge-brick"}>
+                    {given === undefined || given === null ? "Не отвечено" : q.options[given]}
+                  </span>
+                  {given !== q.correct && (
+                    <div style={{ marginTop: 6, color: "var(--ink-soft)" }}>Верно: {q.options[q.correct]}</div>
+                  )}
+                </div>
+              )}
+              {q.type === "multiple" && (
+                <div style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
+                  Ответ: {(given || []).length ? given.map((i) => q.options[i]).join(", ") : "не отвечено"}
+                  <div>Верно: {q.correct.map((i) => q.options[i]).join(", ")}</div>
+                </div>
+              )}
+              {q.type === "text" && (
+                <div style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
+                  Ответ: «{given || "не отвечено"}»
+                </div>
+              )}
+              {q.type === "matching" && (
+                <div style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
+                  {q.pairs.map((p) => (
+                    <div key={p.id} style={{ marginBottom: 4 }}>
+                      {p.left} → {(given || {})[p.id] || "не отвечено"}
+                      {(given || {})[p.id] !== p.right && <span style={{ color: "var(--brick)" }}> (верно: {p.right})</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {q.type === "open" && (
+                <div style={{ fontSize: 14, background: "var(--paper-raised)", border: "1px solid var(--line)", borderRadius: 8, padding: "10px 12px", whiteSpace: "pre-wrap" }}>
+                  {given && given.trim() ? given : <span style={{ color: "var(--ink-soft)" }}>Студент не ответил</span>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 860, overflowX: "auto" }}>
       <div className="app-serif" style={{ fontSize: 22, marginBottom: 20 }}>Прогресс студентов</div>
@@ -735,8 +854,12 @@ function TeacherProgress({ users, tests, results }) {
                   return (
                     <td key={t.id}>
                       {best ? (
-                        <span className={`badge ${best.score === best.total ? "badge-teal" : "badge-neutral"}`}>
-                          {best.score}/{best.total}
+                        <span
+                          className={`badge ${best.score === best.total ? "badge-teal" : "badge-neutral"}`}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => setViewing({ student: s, test: t, attempt: best })}
+                        >
+                          {best.score}/{best.total} · смотреть
                         </span>
                       ) : (
                         <span style={{ color: "var(--ink-soft)", fontSize: 13 }}>—</span>
