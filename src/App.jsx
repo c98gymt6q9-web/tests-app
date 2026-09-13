@@ -141,6 +141,30 @@ const STYLE = `
   }
   .progress-fill { height: 100%; background: linear-gradient(90deg, var(--teal), var(--gold)); border-radius: 20px; transition: width 400ms ease; }
 
+  .qcard {
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(75,46,61,0.05);
+    transition: box-shadow 150ms ease;
+  }
+  .qcard:hover { box-shadow: 0 4px 14px rgba(75,46,61,0.1); }
+  .q-badge-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px; height: 24px;
+    background: var(--teal);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 50%;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+
   .option-row {
     display: flex; align-items: flex-start; gap: 10px;
     padding: 12px 14px;
@@ -989,8 +1013,11 @@ function TestRunner({ test, onCancel, onSubmit }) {
         <button className="btn-ghost btn" onClick={onCancel}><X size={16} /></button>
       </div>
       {test.questions.map((q, qi) => (
-        <div key={q.id} style={{ marginBottom: 26 }}>
-          <div style={{ fontSize: 15, marginBottom: 12 }}>{qi + 1}. {q.text}</div>
+        <div key={q.id} className="qcard">
+          <div style={{ fontSize: 15, marginBottom: 12, display: "flex", alignItems: "flex-start" }}>
+            <span className="q-badge-circle">{qi + 1}</span>
+            <span>{q.text}</span>
+          </div>
           {q.type === "single" &&
             q.options.map((opt, oi) => (
               <div
@@ -998,7 +1025,7 @@ function TestRunner({ test, onCancel, onSubmit }) {
                 className={`option-row ${answers[q.id] === oi ? "selected" : ""}`}
                 onClick={() => setSingle(q.id, oi)}
               >
-                {answers[q.id] === oi ? <CheckCircle2 size={16} color="#2F6F62" /> : <Circle size={16} color="#B7BCB2" />}
+                {answers[q.id] === oi ? <CheckCircle2 size={16} color="#C85C82" /> : <Circle size={16} color="#D9BFC8" />}
                 <span style={{ fontSize: 14 }}>{opt}</span>
               </div>
             ))}
@@ -1007,7 +1034,7 @@ function TestRunner({ test, onCancel, onSubmit }) {
               const checked = (answers[q.id] || []).includes(oi);
               return (
                 <div key={oi} className={`option-row ${checked ? "selected" : ""}`} onClick={() => toggleMultiple(q.id, oi)}>
-                  {checked ? <CheckCircle2 size={16} color="#2F6F62" /> : <Circle size={16} color="#B7BCB2" />}
+                  {checked ? <CheckCircle2 size={16} color="#C85C82" /> : <Circle size={16} color="#D9BFC8" />}
                   <span style={{ fontSize: 14 }}>{opt}</span>
                 </div>
               );
