@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   LogOut,
   Plus,
@@ -11,64 +11,78 @@ import {
   ChevronLeft,
   X,
 } from "lucide-react";
-import { getKV, setKV } from "./lib/store.js";
 
 const TEACHER_CODE = "teach2026";
 
 const STYLE = `
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
+
   .app-root {
-    --ink: #16233A;
-    --ink-soft: #47566B;
-    --paper: #F1F3EF;
+    --ink: #4B2E3D;
+    --ink-soft: #8B5F73;
+    --paper: #FBF1F2;
     --paper-raised: #FFFFFF;
-    --line: #D8DCD4;
-    --teal: #2F6F62;
-    --teal-soft: #E4EEEA;
-    --brick: #B5502E;
-    --brick-soft: #F4E4DE;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --line: #F0D9DF;
+    --teal: #C85C82;
+    --teal-deep: #9C3F66;
+    --teal-soft: #F7E0E8;
+    --brick: #7B4F99;
+    --brick-soft: #EDE1F2;
+    --gold: #7B4F99;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     color: var(--ink);
     background: var(--paper);
     min-height: 100%;
     width: 100%;
   }
-  .app-serif { font-family: Georgia, "Iowan Old Style", "Times New Roman", serif; }
+  .app-serif { font-family: "Fraunces", Georgia, serif; font-optical-sizing: auto; }
   .line-top { border-top: 1px solid var(--line); }
   .line-bottom { border-bottom: 1px solid var(--line); }
   .line-right { border-right: 1px solid var(--line); }
   .divider { height: 1px; background: var(--line); border: none; margin: 0; }
 
+  .logo-mark {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: linear-gradient(155deg, var(--teal), var(--teal-deep));
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: "Fraunces", serif;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
   .btn {
     font-size: 14px;
     padding: 9px 16px;
-    border-radius: 3px;
+    border-radius: 6px;
     border: 1px solid transparent;
     cursor: pointer;
-    transition: background 120ms ease, border-color 120ms ease, opacity 120ms ease;
+    transition: background 150ms ease, border-color 150ms ease, opacity 150ms ease, transform 100ms ease;
     display: inline-flex;
     align-items: center;
     gap: 6px;
   }
   .btn-primary { background: var(--ink); color: var(--paper); }
-  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:hover { opacity: 0.87; transform: translateY(-1px); }
   .btn-secondary { background: transparent; color: var(--ink); border-color: var(--line); }
-  .btn-secondary:hover { border-color: var(--ink-soft); }
-  .btn-teal { background: var(--teal); color: white; }
-  .btn-teal:hover { opacity: 0.88; }
+  .btn-secondary:hover { border-color: var(--ink-soft); background: #FBFAF7; }
+  .btn-teal { background: linear-gradient(155deg, var(--teal), var(--teal-deep)); color: white; box-shadow: 0 2px 8px rgba(47,111,98,0.25); }
+  .btn-teal:hover { opacity: 0.92; transform: translateY(-1px); }
   .btn-ghost { background: transparent; color: var(--ink-soft); padding: 6px 8px; }
   .btn-ghost:hover { color: var(--brick); }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
   .field {
     width: 100%;
     font-size: 14px;
     padding: 10px 12px;
     border: 1px solid var(--line);
-    border-radius: 3px;
+    border-radius: 6px;
     background: var(--paper-raised);
     color: var(--ink);
+    transition: border-color 120ms ease, box-shadow 120ms ease;
   }
-  .field:focus { outline: none; border-color: var(--teal); }
+  .field:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); }
   .field-label {
     font-size: 12.5px;
     color: var(--ink-soft);
@@ -83,51 +97,59 @@ const STYLE = `
     color: var(--ink-soft);
     cursor: pointer;
     border-left: 2px solid transparent;
+    border-radius: 0 8px 8px 0;
+    transition: background 120ms ease, color 120ms ease;
   }
-  .nav-item:hover { color: var(--ink); }
+  .nav-item:hover { color: var(--ink); background: #FBFAF7; }
   .nav-item.active {
     color: var(--ink);
     border-left: 2px solid var(--teal);
     background: var(--teal-soft);
+    font-weight: 500;
   }
 
   .row-item {
-    padding: 16px 0;
+    padding: 18px 14px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+    border-radius: 8px;
+    transition: background 120ms ease;
+    margin: 0 -14px;
   }
+  .row-item:hover { background: #FBFAF7; }
 
   .badge {
     font-size: 12px;
     padding: 3px 9px;
-    border-radius: 3px;
+    border-radius: 20px;
     white-space: nowrap;
   }
-  .badge-teal { background: var(--teal-soft); color: var(--teal); }
+  .badge-teal { background: var(--teal-soft); color: var(--teal-deep); }
   .badge-brick { background: var(--brick-soft); color: var(--brick); }
   .badge-neutral { background: #EAEBE6; color: var(--ink-soft); }
 
   .progress-track {
-    height: 5px;
+    height: 6px;
     background: #E4E6E0;
-    border-radius: 3px;
+    border-radius: 20px;
     overflow: hidden;
     width: 100%;
   }
-  .progress-fill { height: 100%; background: var(--teal); }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--teal), var(--gold)); border-radius: 20px; transition: width 400ms ease; }
 
   .option-row {
     display: flex; align-items: flex-start; gap: 10px;
-    padding: 10px 12px;
+    padding: 12px 14px;
     border: 1px solid var(--line);
-    border-radius: 3px;
+    border-radius: 8px;
     margin-bottom: 8px;
     cursor: pointer;
     background: var(--paper-raised);
+    transition: border-color 120ms ease, background 120ms ease, transform 100ms ease;
   }
-  .option-row:hover { border-color: var(--ink-soft); }
+  .option-row:hover { border-color: var(--ink-soft); transform: translateX(2px); }
   .option-row.selected { border-color: var(--teal); background: var(--teal-soft); }
   .option-row.correct { border-color: var(--teal); background: var(--teal-soft); }
   .option-row.incorrect { border-color: var(--brick); background: var(--brick-soft); }
@@ -142,11 +164,30 @@ const STYLE = `
   @media (max-width: 720px) {
     .sidebar-desktop { display: none; }
     .topbar-mobile { display: flex !important; }
+    .hero-panel { display: none; }
   }
 `;
 
+function loadArr(v) {
+  try {
+    const parsed = JSON.parse(v);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function uid() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 // Разбирает HTML-тест в формате .q-block / .opt / label.correct
@@ -162,7 +203,7 @@ function parseHtmlTest(html) {
     const titleNode = block.querySelector(".q-title");
     if (!titleNode) return;
     const optionEls = block.querySelectorAll(".opt label");
-    if (optionEls.length === 0) return; // не тестовый блок (сопоставление / открытый вопрос) — пропускаем
+    if (optionEls.length === 0) return; // не тестовый блок — пропускаем
 
     const badge = titleNode.querySelector(".badge");
     let text = titleNode.textContent.trim();
@@ -176,6 +217,47 @@ function parseHtmlTest(html) {
     });
 
     questions.push({ id: uid(), type: "single", text, options, correct: correctIdx });
+  });
+
+  // Сопоставление: первая .match-table — термины с data-answer="Буква" в пустой
+  // ячейке, вторая .match-table — буквы с определениями. Если data-answer нет,
+  // пары пропускаются (значит, разметка не рассчитана на автоимпорт).
+  const matchTables = doc.querySelectorAll(".match-table");
+  if (matchTables.length >= 2) {
+    const termRows = matchTables[0].querySelectorAll("tr");
+    const defRows = matchTables[1].querySelectorAll("tr");
+    const defByLetter = {};
+    defRows.forEach((row) => {
+      const cells = row.querySelectorAll("td");
+      if (cells.length >= 2) {
+        defByLetter[cells[0].textContent.trim()] = cells[1].textContent.trim();
+      }
+    });
+    const pairs = [];
+    termRows.forEach((row) => {
+      const cells = row.querySelectorAll("td");
+      if (cells.length < 3) return;
+      const answerCell = cells[2];
+      const letter = answerCell.getAttribute("data-answer");
+      if (!letter || !defByLetter[letter]) return;
+      const left = cells[0].textContent.replace(/^\d+\.\s*/, "").trim();
+      pairs.push({ id: uid(), left, right: defByLetter[letter] });
+    });
+    if (pairs.length >= 2) {
+      questions.push({
+        id: uid(),
+        type: "matching",
+        text: "Сопоставь термин и его определение",
+        pairs,
+      });
+    }
+  }
+
+  // Открытые вопросы: .open-q — не проверяются автоматически, только текст сохраняется
+  doc.querySelectorAll(".open-q").forEach((block) => {
+    const titleNode = block.querySelector(".q-title");
+    if (!titleNode) return;
+    questions.push({ id: uid(), type: "open", text: titleNode.textContent.trim() });
   });
 
   return { title, questions };
@@ -198,13 +280,13 @@ export default function App() {
     (async () => {
       try {
         const [u, t, r] = await Promise.all([
-          getKV("app:users"),
-          getKV("app:tests"),
-          getKV("app:results"),
+          window.storage.get("app:users", true).catch(() => null),
+          window.storage.get("app:tests", true).catch(() => null),
+          window.storage.get("app:results", true).catch(() => null),
         ]);
-        setUsers(Array.isArray(u) ? u : []);
-        setTests(Array.isArray(t) ? t : []);
-        setResults(Array.isArray(r) ? r : []);
+        setUsers(u ? loadArr(u.value) : []);
+        setTests(t ? loadArr(t.value) : []);
+        setResults(r ? loadArr(r.value) : []);
       } catch (e) {
         console.error("Storage load error", e);
       }
@@ -215,7 +297,7 @@ export default function App() {
   const persistUsers = useCallback(async (next) => {
     setUsers(next);
     try {
-      await setKV("app:users", next);
+      await window.storage.set("app:users", JSON.stringify(next), true);
     } catch (e) {
       console.error("Save users failed", e);
     }
@@ -224,7 +306,7 @@ export default function App() {
   const persistTests = useCallback(async (next) => {
     setTests(next);
     try {
-      await setKV("app:tests", next);
+      await window.storage.set("app:tests", JSON.stringify(next), true);
     } catch (e) {
       console.error("Save tests failed", e);
     }
@@ -233,7 +315,7 @@ export default function App() {
   const persistResults = useCallback(async (next) => {
     setResults(next);
     try {
-      await setKV("app:results", next);
+      await window.storage.set("app:results", JSON.stringify(next), true);
     } catch (e) {
       console.error("Save results failed", e);
     }
@@ -294,25 +376,36 @@ export default function App() {
 
   function submitResult(test, answers) {
     let score = 0;
+    let total = 0;
     test.questions.forEach((q) => {
       const given = answers[q.id];
       if (q.type === "single") {
+        total += 1;
         if (given === q.correct) score += 1;
       } else if (q.type === "multiple") {
+        total += 1;
         const g = new Set(given || []);
         const c = new Set(q.correct || []);
         if (g.size === c.size && [...g].every((x) => c.has(x))) score += 1;
       } else if (q.type === "text") {
+        total += 1;
         const accepted = (q.correct || []).map((s) => s.trim().toLowerCase());
         if (accepted.includes((given || "").trim().toLowerCase())) score += 1;
+      } else if (q.type === "matching") {
+        total += q.pairs.length;
+        const g = given || {};
+        q.pairs.forEach((p) => {
+          if (g[p.id] === p.right) score += 1;
+        });
       }
+      // "open" — не проверяется автоматически, не входит в total
     });
     const record = {
       id: uid(),
       username: currentUser.username,
       testId: test.id,
       score,
-      total: test.questions.length,
+      total,
       answers,
       completedAt: Date.now(),
     };
@@ -379,8 +472,9 @@ export default function App() {
           padding: "22px 0",
         }}
       >
-        <div className="app-serif" style={{ fontSize: 20, padding: "0 18px 20px" }}>
-          Тесты
+        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 18px 20px" }}>
+          <div className="logo-mark">Т</div>
+          <div className="app-serif" style={{ fontSize: 19 }}>Тесты</div>
         </div>
         <div style={{ padding: "0 18px 14px", fontSize: 13, color: "var(--ink-soft)" }}>
           {currentUser.name}
@@ -463,54 +557,87 @@ function AuthScreen({ mode, setMode, error, onLogin, onRegister }) {
   const [teacherCode, setTeacherCode] = useState("");
 
   return (
-    <div style={{ display: "flex", minHeight: 520, alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ width: 340 }}>
-        <div className="app-serif" style={{ fontSize: 26, marginBottom: 6 }}>Тесты</div>
-        <div style={{ fontSize: 14, color: "var(--ink-soft)", marginBottom: 28 }}>
-          {mode === "login" ? "Вход в личный кабинет" : "Создать аккаунт"}
+    <div style={{ display: "flex", minHeight: 560 }}>
+      <div
+        className="hero-panel"
+        style={{
+          flex: 1,
+          minWidth: 260,
+          background: "linear-gradient(155deg, var(--teal-deep), var(--teal) 60%, var(--gold))",
+          color: "#fff",
+          padding: 40,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{
+          position: "absolute", inset: 0, opacity: 0.15,
+          backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
+          backgroundSize: "18px 18px",
+        }} />
+        <div style={{ position: "relative" }}>
+          <div className="logo-mark" style={{ width: 40, height: 40, fontSize: 18, background: "rgba(255,255,255,0.18)", marginBottom: 18 }}>Т</div>
+          <div className="app-serif" style={{ fontSize: 30, lineHeight: 1.2 }}>Тесты</div>
         </div>
+        <div className="app-serif" style={{ position: "relative", fontSize: 19, lineHeight: 1.5, maxWidth: 320, opacity: 0.95 }}>
+          Проходите тесты, отслеживайте прогресс — всё в одном месте.
+        </div>
+      </div>
 
-        {mode === "register" && (
-          <div style={{ marginBottom: 14 }}>
-            <label className="field-label">Имя</label>
-            <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Как к вам обращаться" />
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ width: 320 }}>
+          <div className="app-serif" style={{ fontSize: 22, marginBottom: 4 }}>
+            {mode === "login" ? "Вход в личный кабинет" : "Создать аккаунт"}
           </div>
-        )}
-        <div style={{ marginBottom: 14 }}>
-          <label className="field-label">Имя пользователя</label>
-          <input className="field" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" />
-        </div>
-        <div style={{ marginBottom: 14 }}>
-          <label className="field-label">Пароль</label>
-          <input className="field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-        </div>
-        {mode === "register" && (
-          <div style={{ marginBottom: 14 }}>
-            <label className="field-label">Код преподавателя (необязательно)</label>
-            <input className="field" value={teacherCode} onChange={(e) => setTeacherCode(e.target.value)} placeholder="оставьте пустым, если вы студент" />
+          <div style={{ fontSize: 13.5, color: "var(--ink-soft)", marginBottom: 24 }}>
+            {mode === "login" ? "Введите данные, чтобы продолжить" : "Это займёт меньше минуты"}
           </div>
-        )}
 
-        {error && (
-          <div style={{ fontSize: 13, color: "var(--brick)", marginBottom: 14 }}>{error}</div>
-        )}
-
-        <button
-          className="btn btn-primary"
-          style={{ width: "100%", justifyContent: "center", marginBottom: 12 }}
-          onClick={() =>
-            mode === "login" ? onLogin(username, password) : onRegister({ name, username, password, teacherCode })
-          }
-        >
-          {mode === "login" ? "Войти" : "Зарегистрироваться"}
-        </button>
-
-        <div style={{ fontSize: 13, color: "var(--ink-soft)", textAlign: "center" }}>
-          {mode === "login" ? (
-            <>Нет аккаунта? <a onClick={() => setMode("register")} style={{ cursor: "pointer", color: "var(--teal)" }}>Зарегистрироваться</a></>
-          ) : (
-            <>Уже есть аккаунт? <a onClick={() => setMode("login")} style={{ cursor: "pointer", color: "var(--teal)" }}>Войти</a></>
+          {mode === "register" && (
+            <div style={{ marginBottom: 14 }}>
+              <label className="field-label">Имя</label>
+              <input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Как к вам обращаться" />
+            </div>
           )}
+          <div style={{ marginBottom: 14 }}>
+            <label className="field-label">Имя пользователя</label>
+            <input className="field" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label className="field-label">Пароль</label>
+            <input className="field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+          </div>
+          {mode === "register" && (
+            <div style={{ marginBottom: 14 }}>
+              <label className="field-label">Код преподавателя (необязательно)</label>
+              <input className="field" value={teacherCode} onChange={(e) => setTeacherCode(e.target.value)} placeholder="оставьте пустым, если вы студент" />
+            </div>
+          )}
+
+          {error && (
+            <div style={{ fontSize: 13, color: "var(--brick)", marginBottom: 14 }}>{error}</div>
+          )}
+
+          <button
+            className="btn btn-teal"
+            style={{ width: "100%", justifyContent: "center", marginBottom: 12 }}
+            onClick={() =>
+              mode === "login" ? onLogin(username, password) : onRegister({ name, username, password, teacherCode })
+            }
+          >
+            {mode === "login" ? "Войти" : "Зарегистрироваться"}
+          </button>
+
+          <div style={{ fontSize: 13, color: "var(--ink-soft)", textAlign: "center" }}>
+            {mode === "login" ? (
+              <>Нет аккаунта? <a onClick={() => setMode("register")} style={{ cursor: "pointer", color: "var(--teal)" }}>Зарегистрироваться</a></>
+            ) : (
+              <>Уже есть аккаунт? <a onClick={() => setMode("login")} style={{ cursor: "pointer", color: "var(--teal)" }}>Войти</a></>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -664,6 +791,14 @@ function TestRunner({ test, onCancel, onSubmit }) {
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(null);
 
+  const shuffledRights = useMemo(() => {
+    const map = {};
+    test.questions.forEach((q) => {
+      if (q.type === "matching") map[q.id] = shuffle(q.pairs.map((p) => p.right));
+    });
+    return map;
+  }, [test]);
+
   function setSingle(qId, idx) {
     setAnswers((a) => ({ ...a, [qId]: idx }));
   }
@@ -677,17 +812,23 @@ function TestRunner({ test, onCancel, onSubmit }) {
   function setText(qId, val) {
     setAnswers((a) => ({ ...a, [qId]: val }));
   }
+  function setMatch(qId, pairId, val) {
+    setAnswers((a) => ({ ...a, [qId]: { ...(a[qId] || {}), [pairId]: val } }));
+  }
 
   if (submitted) {
+    const hasGraded = submitted.total > 0;
     return (
       <div style={{ maxWidth: 640 }}>
         <div className="app-serif" style={{ fontSize: 22, marginBottom: 8 }}>{test.title} — результат</div>
         <div style={{ fontSize: 16, color: "var(--teal)", marginBottom: 20 }}>
-          {submitted.score} из {submitted.total} правильно
+          {hasGraded ? `${submitted.score} из ${submitted.total} правильно` : "Ответы отправлены — вопросы без автопроверки, преподаватель посмотрит их вручную"}
         </div>
-        <div className="progress-track" style={{ marginBottom: 24 }}>
-          <div className="progress-fill" style={{ width: `${(submitted.score / submitted.total) * 100}%` }} />
-        </div>
+        {hasGraded && (
+          <div className="progress-track" style={{ marginBottom: 24 }}>
+            <div className="progress-fill" style={{ width: `${(submitted.score / submitted.total) * 100}%` }} />
+          </div>
+        )}
         <button className="btn btn-secondary" onClick={onCancel}><ChevronLeft size={15} /> Вернуться к тестам</button>
       </div>
     );
@@ -729,6 +870,35 @@ function TestRunner({ test, onCancel, onSubmit }) {
               value={answers[q.id] || ""}
               onChange={(e) => setText(q.id, e.target.value)}
               placeholder="Введите ответ"
+            />
+          )}
+          {q.type === "matching" && (
+            <div>
+              {q.pairs.map((p) => (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <div style={{ flex: 1, fontSize: 14 }}>{p.left}</div>
+                  <select
+                    className="field"
+                    style={{ flex: 1 }}
+                    value={(answers[q.id] || {})[p.id] || ""}
+                    onChange={(e) => setMatch(q.id, p.id, e.target.value)}
+                  >
+                    <option value="">Выбери определение…</option>
+                    {shuffledRights[q.id].map((opt, oi) => (
+                      <option key={oi} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+          {q.type === "open" && (
+            <textarea
+              className="field"
+              style={{ minHeight: 90 }}
+              value={answers[q.id] || ""}
+              onChange={(e) => setText(q.id, e.target.value)}
+              placeholder="Разверни ответ своими словами — преподаватель проверит его вручную"
             />
           )}
         </div>
@@ -791,11 +961,42 @@ function TestBuilder({ initial, onCancel, onSave }) {
       qs.map((q, i) => (i === qIdx ? { ...q, options: q.options.filter((_, j) => j !== oIdx) } : q))
     );
   }
+  function addPair(qIdx) {
+    setQuestions((qs) =>
+      qs.map((q, i) => (i === qIdx ? { ...q, pairs: [...q.pairs, { id: uid(), left: "", right: "" }] } : q))
+    );
+  }
+  function removePair(qIdx, pairId) {
+    setQuestions((qs) =>
+      qs.map((q, i) => (i === qIdx ? { ...q, pairs: q.pairs.filter((p) => p.id !== pairId) } : q))
+    );
+  }
+  function updatePair(qIdx, pairId, field, val) {
+    setQuestions((qs) =>
+      qs.map((q, i) =>
+        i === qIdx ? { ...q, pairs: q.pairs.map((p) => (p.id === pairId ? { ...p, [field]: val } : p)) } : q
+      )
+    );
+  }
   function changeType(qIdx, type) {
     setQuestions((qs) =>
       qs.map((q, i) => {
         if (i !== qIdx) return q;
         if (type === "text") return { id: q.id, type, text: q.text, correct: [""] };
+        if (type === "open") return { id: q.id, type, text: q.text };
+        if (type === "matching") {
+          return {
+            id: q.id,
+            type,
+            text: q.text,
+            pairs: q.pairs?.length
+              ? q.pairs
+              : [
+                  { id: uid(), left: "", right: "" },
+                  { id: uid(), left: "", right: "" },
+                ],
+          };
+        }
         if (type === "single") return { id: q.id, type, text: q.text, options: q.options?.length ? q.options : ["", ""], correct: 0 };
         return { id: q.id, type, text: q.text, options: q.options?.length ? q.options : ["", ""], correct: [] };
       })
@@ -823,6 +1024,8 @@ function TestBuilder({ initial, onCancel, onSave }) {
     return questions.every((q) => {
       if (!q.text.trim()) return false;
       if (q.type === "text") return (q.correct || []).some((c) => c.trim());
+      if (q.type === "open") return true;
+      if (q.type === "matching") return q.pairs.length >= 2 && q.pairs.every((p) => p.left.trim() && p.right.trim());
       return (q.options || []).every((o) => o.trim()) && q.options.length >= 2;
     });
   }
@@ -878,6 +1081,8 @@ function TestBuilder({ initial, onCancel, onSave }) {
               <option value="single">Один ответ</option>
               <option value="multiple">Несколько ответов</option>
               <option value="text">Текстовый ответ</option>
+              <option value="matching">Сопоставление</option>
+              <option value="open">Открытый ответ</option>
             </select>
             <button className="btn-ghost btn" onClick={() => removeQuestion(qi)}><Trash2 size={15} /></button>
           </div>
@@ -916,6 +1121,38 @@ function TestBuilder({ initial, onCancel, onSave }) {
                 onChange={(e) => updateQ(qi, { correct: e.target.value.split(",").map((s) => s.trim()) })}
                 placeholder="например: митоз, деление клетки"
               />
+            </div>
+          )}
+          {q.type === "matching" && (
+            <div>
+              <label className="field-label">Пары «термин — определение» (каждая строка уже верная пара)</label>
+              {q.pairs.map((p) => (
+                <div key={p.id} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                  <input
+                    className="field"
+                    value={p.left}
+                    onChange={(e) => updatePair(qi, p.id, "left", e.target.value)}
+                    placeholder="Термин"
+                  />
+                  <input
+                    className="field"
+                    value={p.right}
+                    onChange={(e) => updatePair(qi, p.id, "right", e.target.value)}
+                    placeholder="Определение"
+                  />
+                  {q.pairs.length > 2 && (
+                    <button className="btn-ghost btn" onClick={() => removePair(qi, p.id)}><X size={14} /></button>
+                  )}
+                </div>
+              ))}
+              <button className="btn btn-secondary" style={{ marginTop: 4 }} onClick={() => addPair(qi)}>
+                <Plus size={14} /> Пара
+              </button>
+            </div>
+          )}
+          {q.type === "open" && (
+            <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>
+              Ответ не проверяется автоматически — студент впишет текст, ты увидишь его вручную.
             </div>
           )}
         </div>
