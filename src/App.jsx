@@ -326,7 +326,7 @@ export default function App() {
     const u = users.find(
       (x) => x.username.toLowerCase() === username.trim().toLowerCase()
     );
-    if (!u || u.password !== password) {
+    if (!u || u.password !== password.trim()) {
       setAuthError("Неверное имя пользователя или пароль.");
       return;
     }
@@ -349,7 +349,7 @@ export default function App() {
       setAuthError("Код преподавателя неверный.");
       return;
     }
-    const newUser = { id: uid(), name: name.trim(), username: username.trim(), password, role };
+    const newUser = { id: uid(), name: name.trim(), username: username.trim(), password: password.trim(), role };
     persistUsers([...users, newUser]);
     setCurrentUser(newUser);
     setTab(role === "teacher" ? "tests" : "available");
@@ -604,11 +604,28 @@ function AuthScreen({ mode, setMode, error, onLogin, onRegister }) {
           )}
           <div style={{ marginBottom: 14 }}>
             <label className="field-label">Имя пользователя</label>
-            <input className="field" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" />
+            <input
+              className="field"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+            />
           </div>
           <div style={{ marginBottom: 14 }}>
             <label className="field-label">Пароль</label>
-            <input className="field" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            <input
+              className="field"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+            />
           </div>
           {mode === "register" && (
             <div style={{ marginBottom: 14 }}>
