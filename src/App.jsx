@@ -16,6 +16,19 @@ import { getKV, setKV } from "./lib/store.js";
 
 const TEACHER_CODE = "teach2026";
 
+const THEMES = {
+  rose: { label: "Розово-сиреневый", teal: "#C85C82", tealDeep: "#9C3F66", tealSoft: "#F7E0E8", brick: "#7B4F99", brickSoft: "#EDE1F2" },
+  sage: { label: "Шалфейный", teal: "#5C8A5A", tealDeep: "#3F6640", tealSoft: "#E3EEE1", brick: "#8A6A3F", brickSoft: "#F1E6D4" },
+  amber: { label: "Янтарный", teal: "#C98A3E", tealDeep: "#9C6524", tealSoft: "#F6E9D4", brick: "#B5502E", brickSoft: "#F4E1DA" },
+  slate: { label: "Грифельный", teal: "#4A7A9C", tealDeep: "#2E5570", tealSoft: "#DEEBF2", brick: "#8A5A9C", brickSoft: "#EDE1F2" },
+  lavender: { label: "Лавандовый", teal: "#9C6FC2", tealDeep: "#6E4A94", tealSoft: "#EEE3F7", brick: "#C85C82", brickSoft: "#F7E0E8" },
+};
+
+function themeVars(themeKey) {
+  const t = THEMES[themeKey] || THEMES.rose;
+  return { "--teal": t.teal, "--teal-deep": t.tealDeep, "--teal-soft": t.tealSoft, "--brick": t.brick, "--brick-soft": t.brickSoft };
+}
+
 const STYLE = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
 
@@ -213,67 +226,78 @@ function parseHtmlTest(html) {
   const titleEl = doc.querySelector("h1") || doc.querySelector("title");
   const title = titleEl ? titleEl.textContent.trim() : "";
 
-  const blocks = doc.querySelectorAll(".q-block");
   const questions = [];
-  blocks.forEach((block) => {
-    const titleNode = block.querySelector(".q-title");
-    if (!titleNode) return;
-    const optionEls = block.querySelectorAll(".opt label");
-    if (optionEls.length === 0) return; // не тестовый блок — пропускаем
+  let currentSection = "";
+  let pendingTermTable = null;
+  let pendingTermSection = "";
 
-    const badge = titleNode.querySelector(".badge");
-    let text = titleNode.textContent.trim();
-    if (badge) text = text.replace(badge.textContent, "").trim();
-
-    const options = [];
-    let correctIdx = 0;
-    optionEls.forEach((label, idx) => {
-      options.push(label.textContent.trim());
-      if (label.classList.contains("correct")) correctIdx = idx;
-    });
-
-    questions.push({ id: uid(), type: "single", text, options, correct: correctIdx });
-  });
-
-  // Сопоставление: первая .match-table — термины с data-answer="Буква" в пустой
-  // ячейке, вторая .match-table — буквы с определениями. Если data-answer нет,
-  // пары пропускаются (значит, разметка не рассчитана на автоимпорт).
-  const matchTables = doc.querySelectorAll(".match-table");
-  if (matchTables.length >= 2) {
-    const termRows = matchTables[0].querySelectorAll("tr");
-    const defRows = matchTables[1].querySelectorAll("tr");
-    const defByLetter = {};
-    defRows.forEach((row) => {
-      const cells = row.querySelectorAll("td");
-      if (cells.length >= 2) {
-        defByLetter[cells[0].textContent.trim()] = cells[1].textContent.trim();
-      }
-    });
-    const pairs = [];
-    termRows.forEach((row) => {
-      const cells = row.querySelectorAll("td");
-      if (cells.length < 3) return;
-      const answerCell = cells[2];
-      const letter = answerCell.getAttribute("data-answer");
-      if (!letter || !defByLetter[letter]) return;
-      const left = cells[0].textContent.replace(/^\d+\.\s*/, "").trim();
-      pairs.push({ id: uid(), left, right: defByLetter[letter] });
-    });
-    if (pairs.length >= 2) {
-      questions.push({
-        id: uid(),
-        type: "matching",
-        text: "Сопоставь термин и его определение",
-        pairs,
-      });
+  const nodes = doc.querySelectorAll("h2, .q-block, .match-table, .open-q");
+  nodes.forEach((node) => {
+    if (node.tagName === "H2") {
+      const chip = node.querySelector(".chip");
+      let text = node.textContent.trim();
+      if (chip) text = `${chip.textContent.trim()} · ${text.replace(chip.textContent, "").trim()}`;
+      currentSection = text;
+      return;
     }
-  }
 
-  // Открытые вопросы: .open-q — не проверяются автоматически, только текст сохраняется
-  doc.querySelectorAll(".open-q").forEach((block) => {
-    const titleNode = block.querySelector(".q-title");
-    if (!titleNode) return;
-    questions.push({ id: uid(), type: "open", text: titleNode.textContent.trim() });
+    if (node.classList.contains("q-block")) {
+      const titleNode = node.querySelector(".q-title");
+      if (!titleNode) return;
+      const optionEls = node.querySelectorAll(".opt label");
+      if (optionEls.length === 0) return;
+
+      const badge = titleNode.querySelector(".badge");
+      let text = titleNode.textContent.trim();
+      if (badge) text = text.replace(badge.textContent, "").trim();
+
+      const options = [];
+      let correctIdx = 0;
+      optionEls.forEach((label, idx) => {
+        options.push(label.textContent.trim());
+        if (label.classList.contains("correct")) correctIdx = idx;
+      });
+
+      questions.push({ id: uid(), type: "single", text, options, correct: correctIdx, section: currentSection });
+      return;
+    }
+
+    if (node.classList.contains("match-table")) {
+      if (!pendingTermTable) {
+        pendingTermTable = node;
+        pendingTermSection = currentSection;
+        return;
+      }
+      // Сопоставление: pendingTermTable — термины с data-answer="Буква" в пустой
+      // ячейке, node — буквы с определениями. Без data-answer пары не собираются.
+      const termRows = pendingTermTable.querySelectorAll("tr");
+      const defRows = node.querySelectorAll("tr");
+      const defByLetter = {};
+      defRows.forEach((row) => {
+        const cells = row.querySelectorAll("td");
+        if (cells.length >= 2) defByLetter[cells[0].textContent.trim()] = cells[1].textContent.trim();
+      });
+      const pairs = [];
+      termRows.forEach((row) => {
+        const cells = row.querySelectorAll("td");
+        if (cells.length < 3) return;
+        const letter = cells[2].getAttribute("data-answer");
+        if (!letter || !defByLetter[letter]) return;
+        const left = cells[0].textContent.replace(/^\d+\.\s*/, "").trim();
+        pairs.push({ id: uid(), left, right: defByLetter[letter] });
+      });
+      if (pairs.length >= 2) {
+        questions.push({ id: uid(), type: "matching", text: "Сопоставь термин и его определение", pairs, section: pendingTermSection });
+      }
+      pendingTermTable = null;
+      return;
+    }
+
+    if (node.classList.contains("open-q")) {
+      const titleNode = node.querySelector(".q-title");
+      if (!titleNode) return;
+      questions.push({ id: uid(), type: "open", text: titleNode.textContent.trim(), section: currentSection });
+    }
   });
 
   return { title, questions };
@@ -1044,26 +1068,61 @@ function TestRunner({ test, onCancel, onSubmit }) {
     );
   }
 
+  let lastSection = null;
+
   return (
     <div style={{ maxWidth: 640 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div className="app-serif" style={{ fontSize: 22 }}>{test.title}</div>
-        <button className="btn-ghost btn" onClick={onCancel}><X size={16} /></button>
+      <div
+        style={{
+          margin: "-28px -32px 24px",
+          padding: "28px 32px 22px",
+          background: "linear-gradient(155deg, var(--teal-deep), var(--teal) 65%, var(--brick))",
+          color: "#fff",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{
+          position: "absolute", inset: 0, opacity: 0.15,
+          backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
+          backgroundSize: "16px 16px",
+        }} />
+        <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div className="app-serif" style={{ fontSize: 24 }}>{test.title}</div>
+          <button className="btn-ghost btn" style={{ color: "#fff" }} onClick={onCancel}><X size={16} /></button>
+        </div>
       </div>
-      {test.questions.map((q, qi) => (
-        <div key={q.id} className="qcard">
-          <div style={{ fontSize: 15, marginBottom: 12, display: "flex", alignItems: "flex-start" }}>
-            <span className="q-badge-circle">{qi + 1}</span>
-            <span>{q.text}</span>
-          </div>
-          {q.type === "single" &&
-            q.options.map((opt, oi) => (
-              <div
-                key={oi}
-                className={`option-row ${answers[q.id] === oi ? "selected" : ""}`}
-                onClick={() => setSingle(q.id, oi)}
-              >
-                {answers[q.id] === oi ? <CheckCircle2 size={16} color="#C85C82" /> : <Circle size={16} color="#D9BFC8" />}
+      {test.questions.map((q, qi) => {
+        const showSection = q.section && q.section !== lastSection;
+        lastSection = q.section;
+        return (
+          <div key={q.id}>
+            {showSection && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, margin: qi === 0 ? "0 0 16px" : "32px 0 16px" }}>
+                {q.section.includes("·") ? (
+                  <>
+                    <span className="badge" style={{ background: "var(--ink)", color: "#fff" }}>{q.section.split("·")[0].trim()}</span>
+                    <span className="app-serif" style={{ fontSize: 16 }}>{q.section.split("·").slice(1).join("·").trim()}</span>
+                  </>
+                ) : (
+                  <span className="app-serif" style={{ fontSize: 16 }}>{q.section}</span>
+                )}
+                <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
+              </div>
+            )}
+            <div className="qcard">
+              <div style={{ fontSize: 15, marginBottom: 12, display: "flex", alignItems: "flex-start" }}>
+                <span className="q-badge-circle">{qi + 1}</span>
+                <span>{q.text}</span>
+              </div>
+              {q.type === "single" &&
+                q.options.map((opt, oi) => (
+                  <div
+                    key={oi}
+                    className={`option-row ${answers[q.id] === oi ? "selected" : ""}`}
+                    onClick={() => setSingle(q.id, oi)}
+                  >
+                    {answers[q.id] === oi ? <CheckCircle2 size={16} color="#C85C82" /> : <Circle size={16} color="#D9BFC8" />}
                 <span style={{ fontSize: 14 }}>{opt}</span>
               </div>
             ))}
@@ -1114,8 +1173,10 @@ function TestRunner({ test, onCancel, onSubmit }) {
               placeholder="Разверни ответ своими словами — преподаватель проверит его вручную"
             />
           )}
-        </div>
-      ))}
+            </div>
+          </div>
+        );
+      })}
       <button
         className="btn btn-primary"
         onClick={() => setSubmitted(onSubmit(answers))}
