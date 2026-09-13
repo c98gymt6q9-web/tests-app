@@ -12,6 +12,8 @@ import {
   X,
 } from "lucide-react";
 
+import { getKV, setKV } from "./lib/store.js";
+
 const TEACHER_CODE = "teach2026";
 
 const STYLE = `
@@ -168,15 +170,6 @@ const STYLE = `
   }
 `;
 
-function loadArr(v) {
-  try {
-    const parsed = JSON.parse(v);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
@@ -280,13 +273,25 @@ export default function App() {
     (async () => {
       try {
         const [u, t, r] = await Promise.all([
-          window.storage.get("app:users", true).catch(() => null),
-          window.storage.get("app:tests", true).catch(() => null),
-          window.storage.get("app:results", true).catch(() => null),
+          getKV("app:users"),
+          getKV("app:tests"),
+          getKV("app:results"),
         ]);
-        setUsers(u ? loadArr(u.value) : []);
-        setTests(t ? loadArr(t.value) : []);
-        setResults(r ? loadArr(r.value) : []);
+        const loadedUsers = Array.isArray(u) ? u : [];
+        setUsers(loadedUsers);
+        setTests(Array.isArray(t) ? t : []);
+        setResults(Array.isArray(r) ? r : []);
+
+        const savedUsername = localStorage.getItem("session:username");
+        if (savedUsername) {
+          const found = loadedUsers.find((x) => x.username === savedUsername);
+          if (found) {
+            setCurrentUser(found);
+            setTab(found.role === "teacher" ? "tests" : "available");
+          } else {
+            localStorage.removeItem("session:username");
+          }
+        }
       } catch (e) {
         console.error("Storage load error", e);
       }
@@ -297,7 +302,7 @@ export default function App() {
   const persistUsers = useCallback(async (next) => {
     setUsers(next);
     try {
-      await window.storage.set("app:users", JSON.stringify(next), true);
+      await setKV("app:users", next);
     } catch (e) {
       console.error("Save users failed", e);
     }
@@ -306,7 +311,7 @@ export default function App() {
   const persistTests = useCallback(async (next) => {
     setTests(next);
     try {
-      await window.storage.set("app:tests", JSON.stringify(next), true);
+      await setKV("app:tests", next);
     } catch (e) {
       console.error("Save tests failed", e);
     }
@@ -315,7 +320,7 @@ export default function App() {
   const persistResults = useCallback(async (next) => {
     setResults(next);
     try {
-      await window.storage.set("app:results", JSON.stringify(next), true);
+      await setKV("app:results", next);
     } catch (e) {
       console.error("Save results failed", e);
     }
@@ -331,6 +336,7 @@ export default function App() {
       return;
     }
     setCurrentUser(u);
+    localStorage.setItem("session:username", u.username);
     setTab(u.role === "teacher" ? "tests" : "available");
   }
 
@@ -352,6 +358,7 @@ export default function App() {
     const newUser = { id: uid(), name: name.trim(), username: username.trim(), password: password.trim(), role };
     persistUsers([...users, newUser]);
     setCurrentUser(newUser);
+    localStorage.setItem("session:username", newUser.username);
     setTab(role === "teacher" ? "tests" : "available");
   }
 
@@ -360,6 +367,7 @@ export default function App() {
     setTakingTest(null);
     setBuildingTest(false);
     setAuthMode("login");
+    localStorage.removeItem("session:username");
   }
 
   function saveTest(test) {
