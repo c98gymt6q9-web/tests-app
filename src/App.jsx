@@ -94,18 +94,17 @@ const STYLE = `
 
   .nav-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px;
+    padding: 10px 12px;
+    margin-bottom: 2px;
     font-size: 14px;
     color: var(--ink-soft);
     cursor: pointer;
-    border-left: 2px solid transparent;
-    border-radius: 0 8px 8px 0;
+    border-radius: 8px;
     transition: background 120ms ease, color 120ms ease;
   }
   .nav-item:hover { color: var(--ink); background: #FBFAF7; }
   .nav-item.active {
-    color: var(--ink);
-    border-left: 2px solid var(--teal);
+    color: var(--teal-deep);
     background: var(--teal-soft);
     font-weight: 500;
   }
@@ -502,45 +501,84 @@ export default function App() {
       <div
         className="sidebar-desktop line-right"
         style={{
-          width: 220,
+          width: 232,
           flexShrink: 0,
           display: mobileNavOpen ? "block" : undefined,
-          padding: "22px 0",
+          padding: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 18px 20px" }}>
-          <div className="logo-mark">Т</div>
-          <div className="app-serif" style={{ fontSize: 19 }}>Тесты</div>
-        </div>
-        <div style={{ padding: "0 18px 14px", fontSize: 13, color: "var(--ink-soft)" }}>
-          {currentUser.name}
-          <div className="badge badge-neutral" style={{ marginTop: 6, display: "inline-block" }}>
-            {isTeacher ? "Преподаватель" : "Студент"}
+        <div style={{ position: "relative", height: 108, overflow: "hidden", borderBottom: "1px solid var(--line)" }}>
+          <svg viewBox="0 0 232 108" width="232" height="108" style={{ display: "block" }}>
+            <rect width="232" height="108" fill="#F7E0E8" />
+            <circle cx="34" cy="30" r="17" fill="#EDC7D5" />
+            <circle cx="34" cy="30" r="7" fill="#9C3F66" />
+            <circle cx="86" cy="16" r="12" fill="#E9D3EF" />
+            <circle cx="86" cy="16" r="5" fill="#7B4F99" />
+            <circle cx="128" cy="42" r="20" fill="#F2D6DF" />
+            <circle cx="128" cy="42" r="8" fill="#C85C82" />
+            <circle cx="176" cy="20" r="14" fill="#E3D2EC" />
+            <circle cx="176" cy="20" r="6" fill="#7B4F99" />
+            <circle cx="206" cy="58" r="16" fill="#EDC7D5" />
+            <circle cx="206" cy="58" r="6.5" fill="#9C3F66" />
+            <circle cx="20" cy="80" r="13" fill="#E9D3EF" />
+            <circle cx="20" cy="80" r="5.5" fill="#7B4F99" />
+            <circle cx="66" cy="88" r="19" fill="#F2D6DF" />
+            <circle cx="66" cy="88" r="7.5" fill="#C85C82" />
+            <circle cx="112" cy="80" r="11" fill="#EDC7D5" />
+            <circle cx="112" cy="80" r="4.5" fill="#9C3F66" />
+            <circle cx="156" cy="90" r="15" fill="#E3D2EC" />
+            <circle cx="156" cy="90" r="6" fill="#7B4F99" />
+            <circle cx="200" cy="98" r="12" fill="#F2D6DF" />
+            <circle cx="200" cy="98" r="5" fill="#C85C82" />
+          </svg>
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 40%, var(--paper) 100%)" }} />
+          <div style={{ position: "absolute", left: 18, bottom: 10, display: "flex", alignItems: "center", gap: 9 }}>
+            <div className="logo-mark" style={{ boxShadow: "0 2px 8px rgba(75,46,61,0.25)" }}>Т</div>
+            <div className="app-serif" style={{ fontSize: 19, color: "var(--ink)" }}>Тесты</div>
           </div>
         </div>
-        <hr className="divider" style={{ margin: "8px 0" }} />
-        {isTeacher ? (
-          <>
-            <div className={`nav-item ${tab === "tests" ? "active" : ""}`} onClick={() => { setTab("tests"); setMobileNavOpen(false); }}>
-              <ClipboardList size={16} /> Тесты
+
+        <div style={{ padding: "16px 18px 6px", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: "50%",
+            background: "var(--brick-soft)", color: "var(--brick)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "Fraunces, serif", fontSize: 15, flexShrink: 0,
+          }}>
+            {currentUser.name.trim()[0]?.toUpperCase()}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentUser.name}</div>
+            <div className="badge badge-neutral" style={{ marginTop: 2, display: "inline-block" }}>
+              {isTeacher ? "Преподаватель" : "Студент"}
             </div>
-            <div className={`nav-item ${tab === "students" ? "active" : ""}`} onClick={() => { setTab("students"); setMobileNavOpen(false); }}>
-              <BarChart3 size={16} /> Прогресс студентов
-            </div>
-          </>
-        ) : (
-          <>
-            <div className={`nav-item ${tab === "available" ? "active" : ""}`} onClick={() => { setTab("available"); setMobileNavOpen(false); }}>
-              <ClipboardList size={16} /> Доступные тесты
-            </div>
-            <div className={`nav-item ${tab === "progress" ? "active" : ""}`} onClick={() => { setTab("progress"); setMobileNavOpen(false); }}>
-              <BarChart3 size={16} /> Мой прогресс
-            </div>
-          </>
-        )}
-        <hr className="divider" style={{ margin: "8px 0" }} />
-        <div className="nav-item" onClick={logout}>
-          <LogOut size={16} /> Выйти
+          </div>
+        </div>
+
+        <div style={{ padding: "14px 12px 0" }}>
+          {isTeacher ? (
+            <>
+              <div className={`nav-item ${tab === "tests" ? "active" : ""}`} onClick={() => { setTab("tests"); setMobileNavOpen(false); }}>
+                <ClipboardList size={16} /> Тесты
+              </div>
+              <div className={`nav-item ${tab === "students" ? "active" : ""}`} onClick={() => { setTab("students"); setMobileNavOpen(false); }}>
+                <BarChart3 size={16} /> Прогресс студентов
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={`nav-item ${tab === "available" ? "active" : ""}`} onClick={() => { setTab("available"); setMobileNavOpen(false); }}>
+                <ClipboardList size={16} /> Доступные тесты
+              </div>
+              <div className={`nav-item ${tab === "progress" ? "active" : ""}`} onClick={() => { setTab("progress"); setMobileNavOpen(false); }}>
+                <BarChart3 size={16} /> Мой прогресс
+              </div>
+            </>
+          )}
+          <hr className="divider" style={{ margin: "10px 0" }} />
+          <div className="nav-item" onClick={logout}>
+            <LogOut size={16} /> Выйти
+          </div>
         </div>
       </div>
 
